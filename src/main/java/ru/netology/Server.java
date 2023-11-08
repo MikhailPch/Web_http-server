@@ -25,7 +25,7 @@ public class Server {
         try (final var serverSocket = new ServerSocket(port)) {
             while (true) {
                 final var socket = serverSocket.accept();
-                executorService.execute(() -> connect(socket));
+                executorService.submit(() -> connect(socket));
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -33,7 +33,7 @@ public class Server {
     }
 
     private void connect(Socket socket) {
-        try (
+        try (socket;
              final var in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
              final var out = new BufferedOutputStream(socket.getOutputStream())
         ) {
@@ -44,8 +44,12 @@ public class Server {
                 return;
             }
 
-            final var path = parts[1];
-            if (!validPaths.contains(path)) {
+            final var pathParams = parts[1];
+            var parsParams = Request.getQueryParams(pathParams);
+            var parsPath = Request.getQueryPath(pathParams);
+            System.out.println(parsParams);
+            System.out.println(parsPath);
+            if (!validPaths.contains(parsPath)) {
                 out.write((
                         "HTTP/1.1 404 Not Found\r\n" +
                                 "Content-Length: 0\r\n" +
@@ -56,11 +60,11 @@ public class Server {
                 return;
             }
 
-            final var filePath = Path.of(".", "public", path);
+            final var filePath = Path.of(".", "public", parsPath);
             final var mimeType = Files.probeContentType(filePath);//"application/octet-stream" "text/plain"
 
             // special case for classic
-            if (path.equals("/classic.html")) {
+            if (parsPath.equals("/classic.html")) {
                 final var template = Files.readString(filePath);
                 final var content = template.replace(
                         "{time}",
